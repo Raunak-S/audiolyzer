@@ -1,8 +1,5 @@
-mod audio_thread;
-
 use std::{io, thread, time::Duration, sync::{Arc, atomic::{AtomicUsize, Ordering}}};
 
-use audio_thread::get_audio_data;
 use cpal::{traits::{HostTrait, DeviceTrait, StreamTrait}, Device, SampleRate};
 use crossterm::{terminal::{enable_raw_mode, EnterAlternateScreen, disable_raw_mode, LeaveAlternateScreen}, execute, event::{EnableMouseCapture, DisableMouseCapture}};
 
@@ -10,6 +7,8 @@ use tui::{backend::CrosstermBackend, Terminal, widgets::{Block, Borders, Dataset
 use realfft::RealFftPlanner;
 
 use std::sync::mpsc::channel;
+
+use audiolyzer::audio_thread;
 
 fn main() -> Result<(), io::Error> {
 
@@ -39,7 +38,6 @@ fn main() -> Result<(), io::Error> {
         ).unwrap();
         stream.play().unwrap();
         loop {}
-        
     });
     
     enable_raw_mode().unwrap();
@@ -57,9 +55,9 @@ fn main() -> Result<(), io::Error> {
     // ).unwrap();
     // terminal.show_cursor().unwrap();
     loop {
-
+    let prev = std::time::Instant::now();
     let mut data = vec![];
-    while data.len() < 3000 {
+    while data.len() < 735 {
         let mut recv_data = rx.recv().unwrap();
         data.append(&mut recv_data);
 
