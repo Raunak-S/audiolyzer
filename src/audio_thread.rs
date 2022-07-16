@@ -1,4 +1,4 @@
-use std::{io, thread, time::Duration, sync::{Arc, atomic::{AtomicUsize, Ordering}, mpsc::Sender}};
+use std::{io, thread, time::Duration, sync::{Arc, atomic::{AtomicUsize, Ordering}, mpsc::Sender, Mutex}};
 
 use cpal::{traits::{HostTrait, DeviceTrait, StreamTrait}, Device, SampleRate, Host};
 use crossterm::{terminal::{enable_raw_mode, EnterAlternateScreen, disable_raw_mode, LeaveAlternateScreen}, execute, event::{EnableMouseCapture, DisableMouseCapture}};
@@ -26,7 +26,7 @@ pub fn get_device(name: &str) -> Device {
     todo!()
 }
 
-pub fn get_audio_data(tx: Sender<Vec<f32>>) {
+pub fn get_audio_data(data_lock: Arc<Mutex<Vec<f32>>>) {
 
         let host = cpal::default_host();
         let device = host.default_input_device().unwrap();
@@ -41,7 +41,7 @@ pub fn get_audio_data(tx: Sender<Vec<f32>>) {
             &custom_config.into(),
             move |data: &[f32], _: &cpal::InputCallbackInfo| {
                 // react to stream events and read or write stream data here.
-                tx.send(data.to_owned()).unwrap();
+                *data_lock.lock().unwrap() = data.to_owned();
             },
             move |err| {
                 // react to errors here.

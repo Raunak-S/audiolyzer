@@ -1,19 +1,21 @@
-use std::{io, thread, time::Duration, sync::{Arc, atomic::{AtomicUsize, Ordering}}};
+use std::{io, thread, time::Duration, sync::{Arc, atomic::{AtomicUsize, Ordering}, Mutex}};
 
 use cpal::{traits::{HostTrait, DeviceTrait, StreamTrait}, Device, SampleRate};
 use crossterm::{terminal::{enable_raw_mode, EnterAlternateScreen, disable_raw_mode, LeaveAlternateScreen}, execute, event::{EnableMouseCapture, DisableMouseCapture}};
 
 use tui::{backend::CrosstermBackend, Terminal, widgets::{Block, Borders, Dataset, GraphType, Chart, Axis, BarChart}, symbols, style::{Style, Color, Modifier}, text::Span};
-use realfft::RealFftPlanner;
+use realfft::{RealFftPlanner, num_traits::Pow};
 
 use std::sync::mpsc::channel;
 
 use audiolyzer::audio_thread;
 
+const BINS: usize = 30;
+
 fn main() -> Result<(), io::Error> {
 
-    let (tx, rx) = channel();
-
+    let data_lock = Arc::new(Mutex::new(vec![0f32]));
+    let main_data_lock = data_lock.clone();
     std::thread::spawn(move || {
         let host = cpal::default_host();
         let device = host.default_input_device().unwrap();
@@ -28,7 +30,7 @@ fn main() -> Result<(), io::Error> {
             &custom_config.into(),
             move |data: &[f32], _: &cpal::InputCallbackInfo| {
                 // react to stream events and read or write stream data here.
-                tx.send(data.to_owned()).unwrap();
+                *data_lock.lock().unwrap() = data.to_owned();
             },
             move |err| {
                 // react to errors here.
@@ -54,15 +56,18 @@ fn main() -> Result<(), io::Error> {
     //     DisableMouseCapture
     // ).unwrap();
     // terminal.show_cursor().unwrap();
+
+    // B_i' = B_(i-1)' * s' + B_i * (1 - s')
+
+    let mut prev_data_set = vec![0f64; BINS];
+    let s_prime = 0.5;
+
     loop {
-    let prev = std::time::Instant::now();
-    let mut data = vec![];
-    while data.len() < 735 {
-        let mut recv_data = rx.recv().unwrap();
-        data.append(&mut recv_data);
-
-    }
-
+    let data = match main_data_lock.lock() {
+        Ok(res) => res.clone(),
+        _ => continue,
+    };
+    let freq_step = 44100f64/data.len() as f64;
     let mut real_planner = RealFftPlanner::<f64>::new();
 
     // create a FFT
@@ -77,19 +82,31 @@ fn main() -> Result<(), io::Error> {
     let mut display_vec = vec![];
 
     let bars = 64;
-    
-    let mut counter = 0;
 
-    loop {
-        if counter > spectrum.len() { break; }
-        let mut max = 0f64;
-        for val in &spectrum[counter..((counter*2)+1).min(spectrum.len())] {
-            max = max.max(val.norm_sqr());
-        }
-        display_vec.push(("1", 0u64.max(max.log2() as u64)));
-        counter = counter*2+1;
+    let mut bins: [Vec<f64>; BINS] = Default::default();
 
+    // B_i = ((f_i / f_max) ** (1 / gamma)) * B_max
+
+    for val in spectrum.iter().enumerate() {
+        //if val.0>spectrum.len()/2-1 {break;}
+        bins[((freq_step*val.0 as f64/(freq_step*spectrum.len() as f64)).powf(1./2.)*BINS as f64) as usize].push(val.1.norm_sqr());
     }
+
+    for bin in bins.iter().enumerate() {
+        display_vec.push(("1", 0u64.max((prev_data_set[bin.0]*s_prime+bin.1.iter().copied().fold(f64::NEG_INFINITY, f64::max).log2()*(1.-s_prime)) as u64)));
+    }
+
+    // loop {
+    //     if counter > spectrum.len() { break; }
+    //     let mut max = 0f64;
+    //     for val in &spectrum[counter..((counter*2)+1).min(spectrum.len())] {
+    //         max = max.max(val.norm_sqr());
+    //     }
+    //     counter = counter*2+1;
+    //     display_vec.push(("1", 0u64.max((prev_data_set[i]*s_prime+ max.log2()*(1.-s_prime)) as u64)));
+    //     i += 1;
+    // }
+    prev_data_set = display_vec.iter().map(|val| val.1 as f64).collect();
 
     let datasets = vec![
         Dataset::default()
