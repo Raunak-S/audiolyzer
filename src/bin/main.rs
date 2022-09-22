@@ -116,9 +116,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .push(val.1.norm_sqr());
                 }
 
+                // freq_ranges holds strings of tui labels so that they are not
+                // dropped before being used in the bar chart display
+                let freq_ranges: Vec<String> = (0..bins.len()).map(|label| label.to_string()).collect();
                 for bin in bins.iter().enumerate() {
                     display_vec.push((
-                        "1",
+                        freq_ranges[bin.0].as_str(),
                         0u64.max(
                             (prev_data_set[bin.0] * s_prime
                                 + bin
@@ -137,13 +140,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let bar = BarChart::default()
                     .block(
                         Block::default()
-                            .title(data.len().to_string())
+                            .title("audiolyzer")
                             .borders(Borders::ALL),
                     )
                     .bar_width(3)
                     .bar_gap(1)
-                    .bar_style(Style::default().fg(Color::Yellow).bg(Color::Red))
-                    .value_style(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
+                    .bar_style(Style::default().fg(Color::Yellow))
+                    .value_style(Style::default().bg(Color::Yellow))
                     .label_style(Style::default())
                     .data(&display_vec[..])
                     .max(20);
