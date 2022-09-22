@@ -33,8 +33,6 @@ use tui::{
 
 use std::sync::mpsc::channel;
 
-use audiolyzer::audio_thread;
-
 const BINS: usize = 30;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

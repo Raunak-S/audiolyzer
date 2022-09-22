@@ -1,6 +1,5 @@
 use std::{ops::Add, sync::mpsc::channel};
 
-use audiolyzer::audio_thread::get_audio_data;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 
 fn main() {
