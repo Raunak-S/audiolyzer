@@ -1,10 +1,10 @@
 # audiolyzer
 Audio Spectrum Visualizer in Rust
 
+## Abstract
 
-TODO:
-- Make BINS a non-const number so that they can be resized by terminal window size
-- Create a non-terminal frontend
+Audiolyzer is a personal project that I created to advance my Rust skills and learn more about audio processing. It will take currently playing audio and dissasemble it into discrete frequency buckets and display the sound level of each bucket in real time.
+
 
 ## Useful Resources
 
