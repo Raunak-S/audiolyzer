@@ -180,9 +180,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     _ => continue,
                 };
                 let mut real_planner = RealFftPlanner::<f64>::new();
-                
-                let callback_info = data.clone();
+
+                // Vector holding all of the samples
                 let data = data.data;
+
+                let mut windowed_data = vec![0f32; data.len()];
+                if !(1 < data.len()) {
+                    continue;
+                }
+                let window = apodize::hanning_iter(data.len())
+                    .map(|f| f as f32)
+                    .collect::<Vec<f32>>();
+
+                for (windowed, (window, data)) in
+                    windowed_data.iter_mut().zip(window.iter().zip(data.iter()))
+                {
+                    *windowed = *window * *data;
+                }
+
+                let data = windowed_data;
 
                 // create a FFT
                 let r2c = real_planner.plan_fft_forward(data.len());
