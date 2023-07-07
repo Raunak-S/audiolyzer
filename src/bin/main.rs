@@ -50,27 +50,25 @@ struct StreamOutput {
     data: Vec<f32>,
 }
 
-
 // display data helper functions
 
 // creates display data vector for the canvas widget
-fn create_canvas_data(bins: [Vec<f64>; BINS], freq_step: f64, prev_data_set: &mut Vec<f64>) -> Vec<Line> {
-
+fn create_canvas_data(
+    bins: [Vec<f64>; BINS],
+    prev_data_set: &mut Vec<f64>,
+    smoothing: f64,
+) -> Vec<Line> {
     // B_i' = B_(i-1)' * s' + B_i * (1 - s')
+    // s' = s ** (1 / R)
+    // R = NUM_OF_SAMPLES / SAMPLE_RATE
 
     let mut display_vec: Vec<Line> = vec![];
     for bin in bins.iter().enumerate() {
-        let y_value_raw = bin
-        .1
-        .iter()
-        .copied()
-        .fold(1., f64::max)
-        .log10();
+        let y_value_raw = bin.1.iter().copied().fold(1., f64::max).log10();
         let y_value_final = if y_value_raw > prev_data_set[bin.0] {
             y_value_raw
         } else {
-            prev_data_set[bin.0] * S_PRIME
-                + y_value_raw * (1. - S_PRIME)
+            prev_data_set[bin.0] * smoothing + y_value_raw * (1. - smoothing)
         };
         prev_data_set[bin.0] = y_value_final;
         display_vec.push(Line {
@@ -87,39 +85,38 @@ fn create_canvas_data(bins: [Vec<f64>; BINS], freq_step: f64, prev_data_set: &mu
 // creates display data vector for the bar widget
 fn create_bar_data(bins: [Vec<f64>; BINS], prev_data_set: &mut Vec<f64>) -> Vec<Line> {
     todo!()
-// // freq_ranges holds strings of tui labels so that they are not
-                // // dropped before being used in the bar chart display
-                // let freq_ranges: Vec<String> =
-                //     (0..bins.len()).map(|label| label.to_string()).collect();
-                // for bin in bins.iter().enumerate() {
-                //     display_vec.push((
-                //         freq_ranges[bin.0].as_str(),
-                //         0u64.max(
-                //             (prev_data_set[bin.0] * S_PRIME
-                //                 + bin
-                //                     .1
-                //                     .iter()
-                //                     .copied()
-                //                     .fold(f64::NEG_INFINITY, f64::max)
-                //                     .log2()
-                //                     * (1. - S_PRIME)) as u64,
-                //         ),
-                //     ));
-                // }
+    // // freq_ranges holds strings of tui labels so that they are not
+    // // dropped before being used in the bar chart display
+    // let freq_ranges: Vec<String> =
+    //     (0..bins.len()).map(|label| label.to_string()).collect();
+    // for bin in bins.iter().enumerate() {
+    //     display_vec.push((
+    //         freq_ranges[bin.0].as_str(),
+    //         0u64.max(
+    //             (prev_data_set[bin.0] * S_PRIME
+    //                 + bin
+    //                     .1
+    //                     .iter()
+    //                     .copied()
+    //                     .fold(f64::NEG_INFINITY, f64::max)
+    //                     .log2()
+    //                     * (1. - S_PRIME)) as u64,
+    //         ),
+    //     ));
+    // }
 
-                // let bar = BarChart::default()
-                //     .block(Block::default().title("audiolyzer").borders(Borders::ALL))
-                //     .bar_width(3)
-                //     .bar_gap(1)
-                //     .bar_style(Style::default().fg(Color::Yellow))
-                //     .value_style(Style::default().bg(Color::Yellow))
-                //     .label_style(Style::default())
-                //     .data(&display_vec[..])
-                //     .max(20);
-                
-                // display_vec
+    // let bar = BarChart::default()
+    //     .block(Block::default().title("audiolyzer").borders(Borders::ALL))
+    //     .bar_width(3)
+    //     .bar_gap(1)
+    //     .bar_style(Style::default().fg(Color::Yellow))
+    //     .value_style(Style::default().bg(Color::Yellow))
+    //     .label_style(Style::default())
+    //     .data(&display_vec[..])
+    //     .max(20);
+
+    // display_vec
 }
-
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let data_lock = Arc::new(Mutex::new(StreamOutput {
@@ -205,33 +202,47 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 // make input and output vectors
                 let mut spectrum = r2c.make_output_vec();
                 let mut arr: Vec<f64> = data.iter().map(|val| *val as f64).collect();
-                
+
                 r2c.process(&mut arr[..], &mut spectrum).unwrap();
-                
+
                 let mut bins = [BIN; BINS];
 
                 // let freq_step = if !callback_info.callback.is_none() {
                 //     callback_info.callback.unwrap().duration_since(&callback_info.capture.unwrap());
                 // }
-                
+
                 let freq_step = f64::try_from(SAMPLE_RATE)? / data.len() as f64;
-                
+
                 // B_i = ((f_i / f_max) ** (1 / gamma)) * B_max
-                
-                
-                
+
+                /*
+                 *
+                 * Map the calculated frequencies into specific bins
+                 *
+                 * */
+
                 for val in spectrum.iter().enumerate() {
                     //if val.0>spectrum.len()/2-1 {break;}
-                    if freq_step * val.0 as f64 >= 16000. {continue;}
-                    bins[((freq_step * val.0 as f64 / (16000 as f64))
-                    .powf(1. / 2.)
-                    * BINS as f64) as usize]
-                    .push(val.1.norm_sqr());
+                    if freq_step * val.0 as f64 >= (SAMPLE_RATE / 2) as f64 {
+                        continue;
+                    }
+                    bins[((freq_step * val.0 as f64 / (SAMPLE_RATE / 2) as f64).powf(1. / 2.)
+                        * BINS as f64) as usize]
+                        .push(val.1.norm_sqr());
                 }
-                
-                file.write_all(format!("{:?}\n{:?}\n", data.len(), bins.to_owned().map(|ele| {ele.len()})).as_bytes()).unwrap();
-                let placeholder_vec: Vec<Line> = create_canvas_data(bins, freq_step, &mut prev_data_set);
-                
+
+                file.write_all(
+                    format!(
+                        "{:?}\n{:?}\n",
+                        data.len(),
+                        bins.to_owned().map(|ele| { ele.len() })
+                    )
+                    .as_bytes(),
+                )
+                .unwrap();
+                let placeholder_vec: Vec<Line> =
+                    create_canvas_data(bins, &mut prev_data_set, S.powf(1. / freq_step));
+
                 let canvas = Canvas::default()
                     .block(Block::default().title("audiolyzer").borders(Borders::ALL))
                     .x_bounds([0.0, BINS as f64])
