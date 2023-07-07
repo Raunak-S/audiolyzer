@@ -2,18 +2,11 @@ mod inputs;
 
 use std::{
     io::{self, Write},
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc, Mutex,
-    },
-    thread,
+    sync::{Arc, Mutex},
     time::Duration,
 };
 
-use cpal::{
-    traits::{DeviceTrait, HostTrait, StreamTrait},
-    Device, SampleRate, InputCallbackInfo, InputStreamTimestamp, StreamInstant,
-};
+use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture},
     execute,
@@ -21,32 +14,26 @@ use crossterm::{
 };
 
 use inputs::{events::Events, key::Key, InputEvent};
-use realfft::{num_traits::Pow, RealFftPlanner};
+use realfft::RealFftPlanner;
 use tui::{
     backend::CrosstermBackend,
-    style::{Color, Modifier, Style},
-    symbols,
-    text::Span,
+    style::Color,
     widgets::{
         canvas::{Canvas, Line},
-        Axis, BarChart, Block, Borders, Chart, Dataset, GraphType,
+        Block, Borders,
     },
     Terminal,
 };
 
-use std::sync::mpsc::channel;
-
-const BINS: usize = 70;
+const BINS: usize = 30;
 const BIN: Vec<f64> = Vec::new();
 const SAMPLE_RATE: u32 = 44100;
-const S_PRIME: f64 = 0.5;
-const FPS: u8 = 30;
+const S: f64 = 0.001;
+const FPS: u8 = 60;
 
 //data: &[f32], _: &cpal::InputCallbackInfo
 #[derive(Clone, Debug)]
 struct StreamOutput {
-    callback: Option<StreamInstant>,
-    capture: Option<StreamInstant>,
     data: Vec<f32>,
 }
 
@@ -119,43 +106,32 @@ fn create_bar_data(bins: [Vec<f64>; BINS], prev_data_set: &mut Vec<f64>) -> Vec<
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let data_lock = Arc::new(Mutex::new(StreamOutput {
-        data: vec![0f32],
-        callback: None,
-        capture: None,
-    }));
+    let data_lock = Arc::new(Mutex::new(StreamOutput { data: vec![0f32] }));
     let main_data_lock = data_lock.clone();
-    std::thread::spawn(move || {
-        let host = cpal::default_host();
-        let device = host.default_input_device().unwrap();
+    let host = cpal::default_host();
+    let device = host.default_input_device().unwrap();
 
-        let custom_config = cpal::StreamConfig {
-            channels: 1,
-            sample_rate: cpal::SampleRate(SAMPLE_RATE), // default sample rate 44100
-            buffer_size: cpal::BufferSize::Default,
-        };
+    let custom_config = cpal::StreamConfig {
+        channels: 1,
+        sample_rate: cpal::SampleRate(SAMPLE_RATE), // default sample rate 44100
+        buffer_size: cpal::BufferSize::Default,
+    };
 
-        let stream = device
-            .build_input_stream(
-                &custom_config.into(),
-                move |data: &[f32], callback_info: &cpal::InputCallbackInfo| {
-                    // react to stream events and read or write stream data here.
-                    *data_lock.lock().unwrap() = StreamOutput {
-                        data: data.to_owned(),
-                        callback: Some(callback_info.timestamp().callback),
-                        capture: Some(callback_info.timestamp().capture),
-                    };
-                },
-                move |err| {
-                    // react to errors here.
-                    eprintln!("{err}");
-                    panic!()
-                },
-            )
-            .unwrap();
-        stream.play().unwrap();
-        std::thread::park();
-    });
+    let stream = device
+        .build_input_stream(
+            &custom_config.into(),
+            move |data: &[f32], _: &cpal::InputCallbackInfo| {
+                // react to stream events and read or write stream data here.
+                data_lock.lock().unwrap().data.extend(data.iter());
+            },
+            move |err| {
+                // react to errors here.
+                eprintln!("{err}");
+                panic!()
+            },
+        )
+        .unwrap();
+    stream.play().unwrap();
 
     enable_raw_mode().unwrap();
     let mut stdout = io::stdout();
@@ -165,7 +141,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut prev_data_set = vec![0f64; BINS];
 
-    let tick_rate = Duration::from_millis(1000/u64::try_from(FPS)?);
+    let tick_rate = Duration::from_millis(1000 / u64::try_from(FPS)?);
     let events = Events::new(tick_rate);
     let mut file = std::fs::File::create("txt/output.txt").unwrap();
     loop {
@@ -173,7 +149,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             InputEvent::Input(key) => key,
             InputEvent::Tick => {
                 let data = match main_data_lock.lock() {
-                    Ok(res) => res.clone(),
+                    Ok(mut res) => {
+                        let ret = res.clone();
+                        res.data.clear();
+                        ret
+                    }
                     _ => continue,
                 };
                 let mut real_planner = RealFftPlanner::<f64>::new();
@@ -266,7 +246,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         if result.is_exit() {
             break;
-        }        
+        }
     }
 
     // restore terminal
