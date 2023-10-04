@@ -1,3 +1,5 @@
+use std::io::Write;
+
 pub struct FFTEngine {
     prev_data: Vec<f64>,
     curr_data: Vec<f32>,
@@ -5,6 +7,7 @@ pub struct FFTEngine {
     sample_rate: u32,
     smoothing_base: f64,
     processed_values: Vec<f64>,
+    logger: std::fs::File,
 }
 
 impl FFTEngine {
@@ -16,11 +19,25 @@ impl FFTEngine {
             sample_rate,
             smoothing_base,
             processed_values: vec![0.; bins],
+            logger: std::fs::File::create("txt/output.txt").unwrap(),
         }
     }
 
     pub fn push_samples(&mut self, samples: &[f32]) {
+        if samples.is_empty() {
+            return;
+        }
         self.curr_data = samples.to_owned();
+        self.logger
+            .write_all(
+                format!(
+                    "{:?}\n{:?}\n",
+                    self.curr_data.len(),
+                    self.curr_data.to_owned()
+                )
+                .as_bytes(),
+            )
+            .unwrap();
     }
 
     pub fn get_curr_data(&self) -> Vec<f32> {

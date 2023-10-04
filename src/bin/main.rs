@@ -3,7 +3,7 @@ mod inputs;
 use audiolyzer::fft::*;
 
 use std::{
-    io::{self, Write},
+    io,
     sync::{Arc, Mutex},
     time::Duration,
 };
@@ -16,20 +16,20 @@ use crossterm::{
 };
 
 use inputs::{events::Events, key::Key, InputEvent};
-use realfft::RealFftPlanner;
 use tui::{
     backend::CrosstermBackend,
     style::Color,
+    style::Style,
     widgets::{
         canvas::{Canvas, Line},
-        Block, Borders,
+        BarChart, Block, Borders,
     },
     Terminal,
 };
 
-const BINS: usize = 50;
+const BINS: usize = 40;
 const SAMPLE_RATE: u32 = 44100;
-const S: f64 = 0.01;
+const S: f64 = 0.1;
 const FPS: u8 = 60;
 
 #[derive(Clone, Debug)]
@@ -55,39 +55,15 @@ fn create_canvas_data(bins: &Vec<f64>) -> Vec<Line> {
 }
 
 // creates display data vector for the bar widget
-fn create_bar_data(bins: [Vec<f64>; BINS], prev_data_set: &mut Vec<f64>) -> Vec<Line> {
-    todo!()
-    // // freq_ranges holds strings of tui labels so that they are not
-    // // dropped before being used in the bar chart display
-    // let freq_ranges: Vec<String> =
-    //     (0..bins.len()).map(|label| label.to_string()).collect();
-    // for bin in bins.iter().enumerate() {
-    //     display_vec.push((
-    //         freq_ranges[bin.0].as_str(),
-    //         0u64.max(
-    //             (prev_data_set[bin.0] * S_PRIME
-    //                 + bin
-    //                     .1
-    //                     .iter()
-    //                     .copied()
-    //                     .fold(f64::NEG_INFINITY, f64::max)
-    //                     .log2()
-    //                     * (1. - S_PRIME)) as u64,
-    //         ),
-    //     ));
-    // }
-
-    // let bar = BarChart::default()
-    //     .block(Block::default().title("audiolyzer").borders(Borders::ALL))
-    //     .bar_width(3)
-    //     .bar_gap(1)
-    //     .bar_style(Style::default().fg(Color::Yellow))
-    //     .value_style(Style::default().bg(Color::Yellow))
-    //     .label_style(Style::default())
-    //     .data(&display_vec[..])
-    //     .max(20);
-
-    // display_vec
+fn create_bar_data(bins: Vec<f64>) -> Vec<(String, u64)> {
+    // freq_ranges holds strings of tui labels so that they are not
+    // dropped before being used in the bar chart display
+    let mut display_vec = vec![];
+    let freq_ranges: Vec<String> = (0..bins.len()).map(|label| label.to_string()).collect();
+    for bin in bins.iter().enumerate() {
+        display_vec.push((freq_ranges[bin.0].clone(), *bin.1 as u64));
+    }
+    display_vec
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -126,7 +102,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let tick_rate = Duration::from_millis(1000 / u64::try_from(FPS)?);
     let events = Events::new(tick_rate);
-    let mut file = std::fs::File::create("txt/output.txt").unwrap();
     let mut fft_engine = FFTEngine::new(SAMPLE_RATE, BINS, S);
     loop {
         let result = match events.next()? {
@@ -142,30 +117,56 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 };
 
                 fft_engine.push_samples(&data);
+
+                // let mut sample_debug = vec![];
+                // for bin in fft_engine.get_curr_data().iter().enumerate() {
+                //     sample_debug.push(Line {
+                //         x1: bin.0 as f64,
+                //         y1: 0.0,
+                //         x2: bin.0 as f64,
+                //         y2: bin.1.to_owned() as f64,
+                //         color: Color::White,
+                //     });
+                // }
+                // let sample_debug = Canvas::default()
+                //     .block(Block::default().title("audiolyzer").borders(Borders::ALL))
+                //     .x_bounds([0.0, 1350.0])
+                //     .y_bounds([-1.0, 1.0])
+                //     .paint(|ctx| {
+                //         for line in &sample_debug {
+                //             ctx.draw(line);
+                //         }
+                //     });
+
                 fft_engine.apply_hanning_window();
                 fft_engine.apply_fft();
-
-                // file.write_all(
-                //     format!(
-                //         "{:?}\n{:?}\n",
-                //         data.len(),
-                //         &fft_engine.get_curr_data().to_owned()
-                //     )
-                //     .as_bytes(),
-                // )
-                // .unwrap();
 
                 let placeholder_vec: Vec<Line> = create_canvas_data(&fft_engine.get_bins());
 
                 let canvas = Canvas::default()
                     .block(Block::default().title("audiolyzer").borders(Borders::ALL))
-                    .x_bounds([0.0, BINS as f64])
+                    .x_bounds([0.0, (BINS - BINS / 10) as f64])
                     .y_bounds([0.0, 5.0])
                     .paint(|ctx| {
                         for line in &placeholder_vec {
                             ctx.draw(line);
                         }
                     });
+
+                // let display_vec = create_bar_data(fft_engine.get_bins());
+                // let barchart_data = display_vec
+                //     .iter()
+                //     .map(|ele| (ele.0.as_str(), ele.1))
+                //     .collect::<Vec<(&str, u64)>>();
+                // let bar = BarChart::default()
+                //     .block(Block::default().title("audiolyzer").borders(Borders::ALL))
+                //     .bar_width(3)
+                //     .bar_gap(1)
+                //     .bar_style(Style::default().fg(Color::Yellow))
+                //     .value_style(Style::default().bg(Color::Yellow))
+                //     .label_style(Style::default())
+                //     .data(&barchart_data)
+                //     .max(20);
 
                 terminal
                     .draw(|f| {
