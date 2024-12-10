@@ -31,7 +31,7 @@ impl FFTEngine {
         self.logger
             .write_all(
                 format!(
-                    "{:?}\n{:?}\n",
+                    "Curr_data.len {:?}\nCurr_data {:?}\n",
                     self.curr_data.len(),
                     self.curr_data.to_owned()
                 )
@@ -45,7 +45,6 @@ impl FFTEngine {
     }
 
     pub fn apply_hanning_window(&mut self) {
-        let mut windowed_data = vec![0f32; self.curr_data.len()];
         if !(1 < self.curr_data.len()) {
             return;
         }
@@ -53,14 +52,11 @@ impl FFTEngine {
             .map(|f| f as f32)
             .collect::<Vec<f32>>();
 
-        for (windowed, (window, data)) in windowed_data
-            .iter_mut()
-            .zip(window.iter().zip(self.curr_data.iter()))
-        {
-            *windowed = *window * *data;
-        }
-
-        self.curr_data = windowed_data;
+        self.curr_data = window
+            .iter()
+            .zip(self.curr_data.iter())
+            .map(|f| f.0 * f.1)
+            .collect();
     }
 
     pub fn apply_fft(&mut self) {
@@ -72,6 +68,10 @@ impl FFTEngine {
 
         r2c.process(&mut arr[..], &mut spectrum).unwrap();
         let freq_step = f64::try_from(self.sample_rate).unwrap() / self.curr_data.len() as f64;
+
+        self.logger
+            .write_all(format!("spectrum {:?}\nspectrum.len {:?}\nprocessed_values {:?}\n", spectrum, spectrum.len(), self.processed_values,).as_bytes())
+            .unwrap();
 
         // B_i = ((f_i / f_max) ** (1 / gamma)) * B_max
 
@@ -92,9 +92,20 @@ impl FFTEngine {
             if freq_step * val.0 as f64 >= (self.sample_rate / 2) as f64 {
                 continue;
             }
-            let bin_len = self.fft_bins.len();
-            self.fft_bins[((freq_step * val.0 as f64 / (self.sample_rate / 2) as f64).powf(1. / 2.)
-                * bin_len as f64) as usize]
+            // let bin_len = self.fft_bins.len();
+            // let f_i = freq_step * val.0 as f64;
+            // let f_max = (self.sample_rate / 2) as f64;
+            // let gamma = 2.;
+            // let b_max = (bin_len as f64 - 1.);
+
+            let insert_idx = match self.fft_bins.len() {
+                10 => ((val.0 as f64*freq_step).round() / 2000.) as usize,
+                _ => (val.0 as f64*freq_step).round() as usize,
+            };
+            if insert_idx >= self.fft_bins.len() {
+                continue
+            }
+            self.fft_bins[insert_idx]
                 .push(val.1.norm_sqr());
         }
 
@@ -102,18 +113,24 @@ impl FFTEngine {
         // s' = s ** (1 / R)
         // R = NUM_OF_SAMPLES / SAMPLE_RATE
         for bin in self.fft_bins.iter().enumerate() {
-            let y_value_raw = bin.1.iter().copied().fold(1., f64::max).log10();
+            let y_value_raw = bin
+                .1
+                .iter()
+                .copied()
+                .fold(1., f64::max)
+                .log10();
             let y_value_final = if y_value_raw > self.prev_data[bin.0] {
                 y_value_raw
             } else {
                 self.prev_data[bin.0] * smoothing + y_value_raw * (1. - smoothing)
             };
-            self.processed_values[bin.0] = y_value_final;
+            self.processed_values[bin.0] = y_value_final * 20.;
             self.prev_data[bin.0] = y_value_final;
         }
     }
 
     pub fn get_bins(&self) -> Vec<f64> {
-        self.processed_values.clone()
+        // remove the first value because that is the DC component of FFT and has no frequency information
+        self.processed_values[1..].to_vec()
     }
 }

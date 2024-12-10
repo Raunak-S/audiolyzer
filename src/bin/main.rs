@@ -27,10 +27,12 @@ use tui::{
     Terminal,
 };
 
-const BINS: usize = 40;
 const SAMPLE_RATE: u32 = 44100;
-const S: f64 = 0.1;
+const BINS: usize = 10; // TODO: rename to "bands" and change to work for octave bands
+const S: f64 = 0.01;
 const FPS: u8 = 60;
+const MIN_FREQ: u16 = 0;
+const MAX_FREQ: u16 = 10;
 
 #[derive(Clone, Debug)]
 struct StreamOutput {
@@ -70,20 +72,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let data_lock = Arc::new(Mutex::new(StreamOutput { data: vec![0f32] }));
     let main_data_lock = data_lock.clone();
     let host = cpal::default_host();
-    let device = host.default_input_device().unwrap();
-
+    let device = host
+        .devices()
+        .unwrap()
+        .find(|possible_device| possible_device.name().unwrap() == "BlackHole 2ch")
+        .unwrap();
     let custom_config = cpal::StreamConfig {
         channels: 1,
         sample_rate: cpal::SampleRate(SAMPLE_RATE), // default sample rate 44100
-        buffer_size: cpal::BufferSize::Default,
+        buffer_size: cpal::BufferSize::Fixed(1024), // default buffer size cpal::BufferSize::Default
     };
 
     let stream = device
         .build_input_stream(
             &custom_config.into(),
+            //&default_config.into(),
             move |data: &[f32], _: &cpal::InputCallbackInfo| {
                 // react to stream events and read or write stream data here.
-                data_lock.lock().unwrap().data.extend(data.iter());
+                match data_lock.lock() {
+                    Ok(mut streamoutput) => streamoutput.data = data.to_vec(),
+                    _ => ()
+                }
             },
             move |err| {
                 // react to errors here.
@@ -145,8 +154,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 let canvas = Canvas::default()
                     .block(Block::default().title("audiolyzer").borders(Borders::ALL))
-                    .x_bounds([0.0, (BINS - BINS / 10) as f64])
-                    .y_bounds([0.0, 5.0])
+                    .x_bounds([MIN_FREQ.into(), MAX_FREQ.into()])
+                    .y_bounds([0.0, 90.0])
                     .paint(|ctx| {
                         for line in &placeholder_vec {
                             ctx.draw(line);
