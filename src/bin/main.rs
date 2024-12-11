@@ -111,7 +111,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let tick_rate = Duration::from_millis(1000 / u64::try_from(FPS)?);
     let events = Events::new(tick_rate);
-    let mut fft_engine = FFTEngine::new(SAMPLE_RATE, BINS, S);
+    let mut fft_engine = FFTEngine::new(SAMPLE_RATE, BINS, S, WindowType::Blackman);
     loop {
         let result = match events.next()? {
             InputEvent::Input(key) => key,
