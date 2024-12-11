@@ -27,6 +27,7 @@ impl FFTEngine {
             prev_data: vec![0.; bins],
             curr_data: vec![],
             fft_bins: vec![vec![]; bins],
+            processed_values: vec![0.; bins],
             sample_rate,
             smoothing_base,
             window_fn,
