@@ -28,11 +28,11 @@ use tui::{
 };
 
 const SAMPLE_RATE: u32 = 44100;
-const BINS: usize = 10; // TODO: rename to "bands" and change to work for octave bands
-const S: f64 = 0.01;
+const BINS: usize = 22050; // TODO: rename to "bands" and change to work for octave bands
+const S: f64 = 0.00001;
 const FPS: u8 = 60;
-const MIN_FREQ: u16 = 0;
-const MAX_FREQ: u16 = 10;
+const MIN_FREQ: u16 = 20;
+const MAX_FREQ: u16 = 20000;
 
 #[derive(Clone, Debug)]
 struct StreamOutput {
@@ -69,7 +69,7 @@ fn create_bar_data(bins: Vec<f64>) -> Vec<(String, u64)> {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let data_lock = Arc::new(Mutex::new(StreamOutput { data: vec![0f32] }));
+    let data_lock = Arc::new(Mutex::new(StreamOutput { data: vec![] }));
     let main_data_lock = data_lock.clone();
     let host = cpal::default_host();
     let device = host
@@ -118,9 +118,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             InputEvent::Tick => {
                 let data = match main_data_lock.lock() {
                     Ok(mut res) => {
-                        let ret = res.clone();
-                        res.data.clear();
-                        ret.data
+                        res.data.clone()
                     }
                     _ => continue,
                 };
@@ -157,7 +155,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .title(format!("audiolyzer - {:?}", fft_engine.get_window()))
                     .borders(Borders::ALL))
                     .x_bounds([MIN_FREQ.into(), MAX_FREQ.into()])
-                    .y_bounds([0.0, 90.0])
+                    .y_bounds([0.0, 70.0])
                     .paint(|ctx| {
                         for line in &placeholder_vec {
                             ctx.draw(line);
