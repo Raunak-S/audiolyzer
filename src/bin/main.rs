@@ -147,13 +147,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 //         }
                 //     });
 
-                fft_engine.apply_hanning_window();
+                fft_engine.apply_window();
                 fft_engine.apply_fft();
 
                 let placeholder_vec: Vec<Line> = create_canvas_data(&fft_engine.get_bins());
 
                 let canvas = Canvas::default()
-                    .block(Block::default().title("audiolyzer").borders(Borders::ALL))
+                    .block(Block::default()
+                    .title(format!("audiolyzer - {:?}", fft_engine.get_window()))
+                    .borders(Borders::ALL))
                     .x_bounds([MIN_FREQ.into(), MAX_FREQ.into()])
                     .y_bounds([0.0, 90.0])
                     .paint(|ctx| {
@@ -187,6 +189,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Key::Unknown
             }
         };
+
+        if result.is_right_arrow() {
+            let windows = [
+                WindowType::Hanning,
+                WindowType::Hamming,
+                WindowType::Blackman,
+                WindowType::Nuttall,
+            ];
+            let new_idx = ((fft_engine.get_window() as usize)+1) % 4;
+            fft_engine.set_window(windows[new_idx].clone());
+        }
 
         if result.is_exit() {
             break;

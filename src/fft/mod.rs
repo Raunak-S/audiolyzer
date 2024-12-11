@@ -1,5 +1,15 @@
 use std::io::Write;
 
+use apodize::CosineWindowIter;
+
+#[derive(Clone, Debug)]
+pub enum WindowType {
+    Hanning,
+    Hamming,
+    Blackman,
+    Nuttall,
+}
+
 pub struct FFTEngine {
     prev_data: Vec<f64>,
     curr_data: Vec<f32>,
@@ -7,18 +17,19 @@ pub struct FFTEngine {
     sample_rate: u32,
     smoothing_base: f64,
     processed_values: Vec<f64>,
+    window_fn: WindowType,
     logger: std::fs::File,
 }
 
 impl FFTEngine {
-    pub fn new(sample_rate: u32, bins: usize, smoothing_base: f64) -> Self {
+    pub fn new(sample_rate: u32, bins: usize, smoothing_base: f64, window_fn: WindowType) -> Self {
         FFTEngine {
             prev_data: vec![0.; bins],
             curr_data: vec![],
             fft_bins: vec![vec![]; bins],
             sample_rate,
             smoothing_base,
-            processed_values: vec![0.; bins],
+            window_fn,
             logger: std::fs::File::create("txt/output.txt").unwrap(),
         }
     }
@@ -44,11 +55,26 @@ impl FFTEngine {
         self.curr_data.clone()
     }
 
-    pub fn apply_hanning_window(&mut self) {
+    pub fn get_window(&self) -> WindowType {
+        self.window_fn.clone()
+    }
+
+    pub fn set_window(&mut self, window_fn: WindowType) {
+        self.window_fn = window_fn;
+    }
+
+    pub fn apply_window(&mut self) {
         if !(1 < self.curr_data.len()) {
             return;
         }
-        let window = apodize::hanning_iter(self.curr_data.len())
+        
+        let window_fn: CosineWindowIter = match self.window_fn {
+            WindowType::Hanning => apodize::hanning_iter(self.curr_data.len()),
+            WindowType::Blackman => apodize::blackman_iter(self.curr_data.len()),
+            WindowType::Hamming => apodize::hamming_iter(self.curr_data.len()),
+            WindowType::Nuttall => apodize::nuttall_iter(self.curr_data.len()),
+        };
+        let window = window_fn
             .map(|f| f as f32)
             .collect::<Vec<f32>>();
 
