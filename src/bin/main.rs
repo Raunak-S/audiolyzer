@@ -29,7 +29,7 @@ use tui::{
 
 const SAMPLE_RATE: u32 = 44100;
 const BINS: usize = 22050; // TODO: rename to "bands" and change to work for octave bands
-const S: f64 = 0.00001;
+const S: f64 = 0.7;
 const FPS: u8 = 60;
 const MIN_FREQ: u16 = 20;
 const MAX_FREQ: u16 = 20000;

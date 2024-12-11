@@ -108,8 +108,6 @@ impl FFTEngine {
          *
          * */
 
-        let smoothing = self.smoothing_base.powf(1. / freq_step);
-
         for bin in &mut self.fft_bins {
             bin.clear();
         }
@@ -144,15 +142,10 @@ impl FFTEngine {
                 .1
                 .iter()
                 .copied()
-                .fold(1., f64::max)
-                .log10();
-            let y_value_final = if y_value_raw > self.prev_data[bin.0] {
-                y_value_raw
-            } else {
-                self.prev_data[bin.0] * smoothing + y_value_raw * (1. - smoothing)
-            };
-            self.processed_values[bin.0] = y_value_final * 20.;
+                .fold(1., f64::max);
+            let y_value_final = self.prev_data[bin.0] * self.smoothing_base + y_value_raw * (1. - self.smoothing_base);
             self.prev_data[bin.0] = y_value_final;
+            self.processed_values[bin.0] = 20. * y_value_final.log10();
         }
     }
 
