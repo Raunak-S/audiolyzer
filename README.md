@@ -16,3 +16,4 @@ cargo run
 ## Useful Resources
 
 - [FFT-based audio visualization](https://dlbeer.co.nz/articles/fftvis.html)
+- [Browser Web Audio API - AnalyserNode](https://webaudio.github.io/web-audio-api/#AnalyserNode)
