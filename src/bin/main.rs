@@ -30,9 +30,9 @@ use tui::{
 const SAMPLE_RATE: u32 = 44100;
 const BINS: usize = 22050; // TODO: rename to "bands" and change to work for octave bands
 const S: f64 = 0.7;
-const FPS: u8 = 60;
-const MIN_FREQ: u16 = 20;
-const MAX_FREQ: u16 = 20000;
+const FPS: u8 = 75;
+const MIN_FREQ: u16 = 2000;
+const MAX_FREQ: u16 = 12000;
 
 #[derive(Clone, Debug)]
 struct StreamOutput {
@@ -155,7 +155,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .title(format!("audiolyzer - {:?}", fft_engine.get_window()))
                     .borders(Borders::ALL))
                     .x_bounds([MIN_FREQ.into(), MAX_FREQ.into()])
-                    .y_bounds([0.0, 70.0])
+                    .y_bounds([0.0, 10.0])
                     .paint(|ctx| {
                         for line in &placeholder_vec {
                             ctx.draw(line);

@@ -43,9 +43,8 @@ impl FFTEngine {
         self.logger
             .write_all(
                 format!(
-                    "Curr_data.len {:?}\nCurr_data {:?}\n",
-                    self.curr_data.len(),
-                    self.curr_data.to_owned()
+                    "Curr_data.len {:?}\n",
+                    self.curr_data.len()
                 )
                 .as_bytes(),
             )
@@ -97,7 +96,7 @@ impl FFTEngine {
         let freq_step = f64::try_from(self.sample_rate).unwrap() / self.curr_data.len() as f64;
 
         self.logger
-            .write_all(format!("spectrum {:?}\nspectrum.len {:?}\nprocessed_values {:?}\n", spectrum, spectrum.len(), self.processed_values,).as_bytes())
+            .write_all(format!("spectrum.len {:?}\n", spectrum.len()).as_bytes())
             .unwrap();
 
         // B_i = ((f_i / f_max) ** (1 / gamma)) * B_max
@@ -131,21 +130,49 @@ impl FFTEngine {
                 continue
             }
             self.fft_bins[insert_idx]
-                .push(val.1.norm_sqr());
+                .push(val.1.norm());
         }
+
 
         // B_i' = B_(i-1)' * s' + B_i * (1 - s')
         // s' = s ** (1 / R)
         // R = NUM_OF_SAMPLES / SAMPLE_RATE
         for bin in self.fft_bins.iter().enumerate() {
-            let y_value_raw = bin
-                .1
-                .iter()
-                .copied()
-                .fold(1., f64::max);
+            let y_value_raw = if bin.1.len() != 0 {
+                bin
+                .1[0] / (self.curr_data.len() as f64)
+            } else {
+                0.
+            };
+
+            
             let y_value_final = self.prev_data[bin.0] * self.smoothing_base + y_value_raw * (1. - self.smoothing_base);
             self.prev_data[bin.0] = y_value_final;
-            self.processed_values[bin.0] = 20. * y_value_final.log10();
+            self.processed_values[bin.0] = self.normalize_db(self.linear_to_db(y_value_final)) * 10.;
+        }
+    }
+
+    fn linear_to_db(&self, value: f64) -> f64 {
+        if value == 0f64 {
+            -1000f64
+        } else {
+            20f64 * value.log10()
+        }
+    }
+
+    fn normalize_db(&self, value: f64) -> f64 {
+        
+        let max_val = -25f64;
+        let min_val = -85f64;
+
+        let normal_val = (value-min_val) / (max_val - min_val);
+
+        if normal_val < 0. {
+            0.
+        } else if normal_val > 1. {
+            1.
+        } else {
+            normal_val
         }
     }
 
