@@ -40,15 +40,12 @@ impl FFTEngine {
             return;
         }
         self.curr_data = samples.to_owned();
-        self.logger
-            .write_all(
+        self.log(
                 format!(
                     "Curr_data.len {:?}\n",
                     self.curr_data.len()
                 )
-                .as_bytes(),
-            )
-            .unwrap();
+            );
     }
 
     pub fn get_curr_data(&self) -> Vec<f32> {
@@ -95,9 +92,7 @@ impl FFTEngine {
         r2c.process(&mut arr[..], &mut spectrum).unwrap();
         let freq_step = f64::try_from(self.sample_rate).unwrap() / self.curr_data.len() as f64;
 
-        self.logger
-            .write_all(format!("spectrum.len {:?}\n", spectrum.len()).as_bytes())
-            .unwrap();
+        self.log(format!("spectrum.len {:?}\n", spectrum.len()));
 
         // B_i = ((f_i / f_max) ** (1 / gamma)) * B_max
 
@@ -179,5 +174,9 @@ impl FFTEngine {
     pub fn get_bins(&self) -> Vec<f64> {
         // remove the first value because that is the DC component of FFT and has no frequency information
         self.processed_values[1..].to_vec()
+    }
+
+    pub fn log(&mut self, s: String) {
+        self.logger.write_all(s.as_bytes(),).unwrap();
     }
 }
