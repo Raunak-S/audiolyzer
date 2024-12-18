@@ -9,14 +9,15 @@ use std::{
 };
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use crossterm::{
-    event::{DisableMouseCapture, EnableMouseCapture},
-    execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-};
 
 use inputs::{events::Events, key::Key, InputEvent};
-use tui::{
+
+use ratatui::{
+    crossterm::{
+        event::{DisableMouseCapture, EnableMouseCapture},
+        execute,
+        terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    },
     backend::CrosstermBackend,
     style::Color,
     style::Style,
@@ -24,7 +25,7 @@ use tui::{
         canvas::{Canvas, Line},
         BarChart, Block, Borders,
     },
-    Terminal,
+    Terminal
 };
 
 const SAMPLE_RATE: u32 = 44100;

@@ -4,7 +4,7 @@ use std::{
     time::Duration,
 };
 
-use crossterm::event;
+use ratatui::crossterm::event;
 
 use super::{key::Key, InputEvent};
 
@@ -19,7 +19,7 @@ impl Events {
 
         let event_tx = tx.clone();
         thread::spawn(move || loop {
-            if crossterm::event::poll(tick_rate).unwrap() {
+            if event::poll(tick_rate).unwrap() {
                 if let event::Event::Key(key) = event::read().unwrap() {
                     let key = Key::from(key);
                     event_tx.send(InputEvent::Input(key)).unwrap();
