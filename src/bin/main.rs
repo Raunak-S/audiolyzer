@@ -5,7 +5,7 @@ use audiolyzer::fft::*;
 use std::{
     io,
     sync::{Arc, Mutex},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
@@ -30,9 +30,9 @@ use tui::{
 const SAMPLE_RATE: u32 = 44100;
 const BINS: usize = 22050; // TODO: rename to "bands" and change to work for octave bands
 const S: f64 = 0.7;
-const FPS: u8 = 75;
-const MIN_FREQ: u16 = 2000;
-const MAX_FREQ: u16 = 12000;
+const FPS: u8 = 60;
+const MIN_FREQ: u16 = 20;
+const MAX_FREQ: u16 = 20000;
 
 #[derive(Clone, Debug)]
 struct StreamOutput {
@@ -66,6 +66,15 @@ fn create_bar_data(bins: Vec<f64>) -> Vec<(String, u64)> {
         display_vec.push((freq_ranges[bin.0].clone(), *bin.1 as u64));
     }
     display_vec
+}
+
+fn calc_avg_tick(tickindex: &mut usize, ticksum: &mut f32, ticklist: &mut [f32], newtick: f32) -> f32 {
+    *ticksum -= ticklist[*tickindex];
+    *ticksum += newtick;
+    ticklist[*tickindex] = newtick;
+    *tickindex = (*tickindex+1) % 100;
+
+    *ticksum/(ticklist.len() as f32)
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -112,6 +121,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let tick_rate = Duration::from_millis(1000 / u64::try_from(FPS)?);
     let events = Events::new(tick_rate);
     let mut fft_engine = FFTEngine::new(SAMPLE_RATE, BINS, S, WindowType::Blackman);
+
+    let mut start = Instant::now();
+    let mut tickindex = 0usize;
+    let mut ticksum = 0f32;
+    let mut ticklist = [0f32; 100];
+
     loop {
         let result = match events.next()? {
             InputEvent::Input(key) => key,
@@ -150,9 +165,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 let placeholder_vec: Vec<Line> = create_canvas_data(&fft_engine.get_bins());
 
+                let newtick = start.elapsed().as_secs_f32();
+                let fps = 1f32 / calc_avg_tick(&mut tickindex, &mut ticksum, &mut ticklist, newtick);
+                start = Instant::now();
+
                 let canvas = Canvas::default()
                     .block(Block::default()
-                    .title(format!("audiolyzer - {:?}", fft_engine.get_window()))
+                    .title(format!("audiolyzer - Window: {:?} - FPS: {:?}", fft_engine.get_window(), fps))
                     .borders(Borders::ALL))
                     .x_bounds([MIN_FREQ.into(), MAX_FREQ.into()])
                     .y_bounds([0.0, 10.0])
