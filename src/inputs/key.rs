@@ -84,6 +84,16 @@ impl Key {
         matches!(self, Key::Left)
     }
 
+    ///If up arrow
+    pub fn is_up_arrow(&self) -> bool {
+        matches!(self, Key::Up)
+    }
+
+    ///If down arrow
+    pub fn is_down_arrow(&self) -> bool {
+        matches!(self, Key::Down)
+    }
+
     /// Returns the function key corresponding to the given number
     ///
     /// 1 -> F1, etc...
