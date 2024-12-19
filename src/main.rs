@@ -16,18 +16,14 @@ use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use inputs::{events::Events, key::Key, InputEvent};
 
 use ratatui::{
-    backend::CrosstermBackend,
-    crossterm::{
+    backend::CrosstermBackend, crossterm::{
         event::{DisableMouseCapture, EnableMouseCapture},
         execute,
         terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-    },
-    style::{Color, Style},
-    widgets::{
+    }, layout::{Constraint, Direction, Layout, Rect}, style::{Color, Style}, widgets::{
         canvas::{Canvas, Line, Points},
-        BarChart, Block, Borders, Clear,
-    },
-    Terminal,
+        BarChart, Block, Borders, Clear, Paragraph,
+    }, Terminal
 };
 
 use clap::{Parser, Subcommand};
@@ -97,6 +93,28 @@ fn normalize_db(value: f64) -> f64 {
     }
 }
 
+fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
+    // Cut the given rectangle into three vertical pieces
+    let popup_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage((100 - percent_y) / 2),
+            Constraint::Percentage(percent_y),
+            Constraint::Percentage((100 - percent_y) / 2),
+        ])
+        .split(r);
+
+    // Then cut the middle vertical piece into three width-wise pieces
+    Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage((100 - percent_x) / 2),
+            Constraint::Percentage(percent_x),
+            Constraint::Percentage((100 - percent_x) / 2),
+        ])
+        .split(popup_layout[1])[1] // Return the middle chunk
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     let SAMPLE_RATE: u32 = args.sample_rate;
@@ -123,10 +141,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         buffer_size: cpal::BufferSize::Fixed(fft_size), // default buffer size cpal::BufferSize::Default
     };
 
-    let stream = device
+    let mut edit_in_device = false;
+    let mut devices: Vec<(usize, String)> = host.input_devices().unwrap().enumerate().map(|(i, d)| (i, d.name().unwrap())).collect();
+
+    let mut stream = device
         .build_input_stream(
-            &custom_config.into(),
-            //&default_config.into(),
+            &custom_config,
             move |data: &[f32], _: &cpal::InputCallbackInfo| {
                 // react to stream events and read or write stream data here.
                 match data_lock.lock() {
@@ -216,8 +236,32 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 terminal
                     .draw(|f| {
-                        let size = f.size();
-                        f.render_widget(canvas, size);
+                        let size = f.area();
+
+                        match edit_in_device {
+                            true => {
+                                let popup_block = Block::default()
+                                    .title("")
+                                    .borders(Borders::NONE)
+                                    .style(Style::default().bg(Color::DarkGray));
+                                let area = centered_rect(60, 25, size);
+
+                                let popup_chunks = Layout::default()
+                                    .direction(Direction::Vertical)
+                                    .constraints(Constraint::from_lengths(vec![1; devices.len()]))
+                                    .split(area);
+
+                                f.render_widget(canvas, size);
+                                f.render_widget(Clear, area);
+                                f.render_widget(popup_block, area);
+                                devices.iter().for_each(|(i, d)| {
+                                    let text = Paragraph::new(d.clone());
+                                    f.render_widget(text, popup_chunks[*i]);
+                                });
+                            },
+                            false => f.render_widget(canvas, size),
+                        }
+                        
                     })
                     .unwrap();
 
@@ -234,6 +278,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             ];
             let new_idx = ((fft_engine.get_window() as usize) + 1) % 4;
             fft_engine.set_window(windows[new_idx].clone());
+        }
+
+        if result.is_left_arrow() {
+            if !edit_in_device {
+                devices = host.input_devices().unwrap().enumerate().map(|(i, d)| (i, d.name().unwrap())).collect();
+            }
+            edit_in_device = !edit_in_device;
+        }
+
+        if result.is_down_arrow() {
+            if edit_in_device {
+                
+            }
         }
 
         if result.is_exit() {
