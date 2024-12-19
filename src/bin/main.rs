@@ -1,6 +1,7 @@
 mod inputs;
 
 use audiolyzer::fft::*;
+use audiolyzer::display::{DiscreteStrategy, DisplayStrategy, DisplayStrategyFactory, LineStrategy, PointStrategy};
 
 use std::{
     io,
@@ -13,19 +14,18 @@ use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use inputs::{events::Events, key::Key, InputEvent};
 
 use ratatui::{
+    backend::CrosstermBackend,
     crossterm::{
         event::{DisableMouseCapture, EnableMouseCapture},
         execute,
         terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
     },
-    backend::CrosstermBackend,
-    style::Color,
-    style::Style,
+    style::{Color, Style},
     widgets::{
-        canvas::{Canvas, Line},
-        BarChart, Block, Borders,
+        canvas::{Canvas, Line, Points},
+        BarChart, Block, Borders, Clear,
     },
-    Terminal
+    Terminal,
 };
 
 const SAMPLE_RATE: u32 = 44100;
@@ -34,48 +34,25 @@ const S: f64 = 0.7;
 const FPS: u8 = 60;
 const MIN_FREQ: u16 = 20;
 const MAX_FREQ: u16 = 20000;
+const DISPLAY_MODE: &str = "DISCRETE";
 
 #[derive(Clone, Debug)]
 struct StreamOutput {
     data: Vec<f32>,
 }
 
-// display data helper functions
-
-// creates display data vector for the canvas widget
-fn create_canvas_data(bins: &Vec<f64>) -> Vec<Line> {
-    let mut display_vec: Vec<Line> = vec![];
-    for bin in bins.iter().enumerate() {
-        display_vec.push(Line {
-            x1: bin.0 as f64,
-            y1: 0.0,
-            x2: bin.0 as f64,
-            y2: bin.1.to_owned(),
-            color: Color::White,
-        });
-    }
-    display_vec
-}
-
-// creates display data vector for the bar widget
-fn create_bar_data(bins: Vec<f64>) -> Vec<(String, u64)> {
-    // freq_ranges holds strings of tui labels so that they are not
-    // dropped before being used in the bar chart display
-    let mut display_vec = vec![];
-    let freq_ranges: Vec<String> = (0..bins.len()).map(|label| label.to_string()).collect();
-    for bin in bins.iter().enumerate() {
-        display_vec.push((freq_ranges[bin.0].clone(), *bin.1 as u64));
-    }
-    display_vec
-}
-
-fn calc_avg_tick(tickindex: &mut usize, ticksum: &mut f32, ticklist: &mut [f32], newtick: f32) -> f32 {
+fn calc_avg_tick(
+    tickindex: &mut usize,
+    ticksum: &mut f32,
+    ticklist: &mut [f32],
+    newtick: f32,
+) -> f32 {
     *ticksum -= ticklist[*tickindex];
     *ticksum += newtick;
     ticklist[*tickindex] = newtick;
-    *tickindex = (*tickindex+1) % 100;
+    *tickindex = (*tickindex + 1) % 100;
 
-    *ticksum/(ticklist.len() as f32)
+    *ticksum / (ticklist.len() as f32)
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -101,7 +78,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 // react to stream events and read or write stream data here.
                 match data_lock.lock() {
                     Ok(mut streamoutput) => streamoutput.data = data.to_vec(),
-                    _ => ()
+                    _ => (),
                 }
             },
             move |err| {
@@ -133,9 +110,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             InputEvent::Input(key) => key,
             InputEvent::Tick => {
                 let data = match main_data_lock.lock() {
-                    Ok(mut res) => {
-                        res.data.clone()
-                    }
+                    Ok(mut res) => res.data.clone(),
                     _ => continue,
                 };
 
@@ -164,22 +139,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 fft_engine.apply_window();
                 fft_engine.apply_fft();
 
-                let placeholder_vec: Vec<Line> = create_canvas_data(&fft_engine.get_bins());
-
                 let newtick = start.elapsed().as_secs_f32();
-                let fps = 1f32 / calc_avg_tick(&mut tickindex, &mut ticksum, &mut ticklist, newtick);
+                let fps =
+                    1f32 / calc_avg_tick(&mut tickindex, &mut ticksum, &mut ticklist, newtick);
                 start = Instant::now();
 
                 let canvas = Canvas::default()
-                    .block(Block::default()
-                    .title(format!("audiolyzer - Window: {:?} - FPS: {:?}", fft_engine.get_window(), fps))
-                    .borders(Borders::ALL))
+                    .block(
+                        Block::default()
+                            .title(format!(
+                                "audiolyzer - Window: {:?} - FPS: {:?}",
+                                fft_engine.get_window(),
+                                fps
+                            ))
+                            .borders(Borders::ALL),
+                    )
                     .x_bounds([MIN_FREQ.into(), MAX_FREQ.into()])
                     .y_bounds([0.0, 10.0])
                     .paint(|ctx| {
-                        for line in &placeholder_vec {
-                            ctx.draw(line);
-                        }
+                        let s = DisplayStrategyFactory::get_display_strategy(DISPLAY_MODE);
+                        s.render(ctx, &fft_engine.get_bins());
                     });
 
                 // let display_vec = create_bar_data(fft_engine.get_bins());
@@ -215,7 +194,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 WindowType::Blackman,
                 WindowType::Nuttall,
             ];
-            let new_idx = ((fft_engine.get_window() as usize)+1) % 4;
+            let new_idx = ((fft_engine.get_window() as usize) + 1) % 4;
             fft_engine.set_window(windows[new_idx].clone());
         }
 
