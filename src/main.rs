@@ -1,7 +1,9 @@
 mod inputs;
+mod display;
+mod fft;
 
-use audiolyzer::display::{DiscreteStrategy, DisplayStrategyFactory, LineStrategy, PointStrategy};
-use audiolyzer::fft::*;
+use display::{DiscreteStrategy, DisplayStrategyFactory, LineStrategy, PointStrategy};
+use fft::*;
 
 use std::{
     io,
