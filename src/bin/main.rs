@@ -187,12 +187,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             .borders(Borders::ALL),
                     )
                     .x_bounds([MIN_FREQ.into(), MAX_FREQ.into()])
-                    .y_bounds([0.0, 10.0])
+                    .y_bounds([0.0, 1.0])
                     .paint(|ctx| {
                         let mut freq_data = fft_engine.get_bins();
                         freq_data
                             .iter_mut()
-                            .for_each(|x| *x = normalize_db(*x) * 10.);
+                            .for_each(|x| *x = normalize_db(*x));
                         let s = DisplayStrategyFactory::get_display_strategy(DISPLAY_MODE);
                         s.render(ctx, &freq_data, freq_step);
                     });
