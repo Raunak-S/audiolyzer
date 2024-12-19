@@ -56,26 +56,17 @@ pub struct LineStrategy;
 impl DisplayStrategy for LineStrategy {
     fn render(&self, ctx: &mut Context, bins: &Vec<f64>, freq_step: f64) {
         let mut display_vec: Vec<Line> = vec![];
-        let mut l = 0usize;
-        for idx in 1..bins.len() {
-            if bins[idx] != 0f64 {
+        for idx in 0..bins.len()-1 {
+            if bins[idx] != 0f64 || bins[idx+1] != 0f64 {
                 display_vec.push(Line {
-                    x1: freq_step * l as f64,
-                    y1: bins[l],
-                    x2: freq_step * idx as f64,
-                    y2: bins[idx],
+                    x1: freq_step * idx as f64,
+                    y1: bins[idx],
+                    x2: freq_step * (idx+1) as f64,
+                    y2: bins[idx+1],
                     color: Color::White,
                 });
-                l = idx;
             }
         }
-        display_vec.push(Line {
-            x1: freq_step * l as f64,
-            y1: 0f64,
-            x2: freq_step * l as f64,
-            y2: bins[l],
-            color: Color::White,
-        });
 
         for line in &display_vec {
             ctx.draw(line);
