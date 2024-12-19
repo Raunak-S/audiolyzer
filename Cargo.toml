@@ -6,9 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-cpal = "0.13.3"
-crossterm = "0.23.2"
-realfft = "3.0.0"
+cpal = "0.15.3"
+crossterm = "0.28.1"
+realfft = "3.4.0"
 apodize = "1.0.0"
 ratatui = "0.29.0"
 clap = { version = "4.5.23", features = ["derive"] }

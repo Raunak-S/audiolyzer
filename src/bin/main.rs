@@ -137,6 +137,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 eprintln!("{err}");
                 panic!()
             },
+            None
         )
         .unwrap();
     stream.play().unwrap();
