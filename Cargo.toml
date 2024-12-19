@@ -11,3 +11,4 @@ crossterm = "0.23.2"
 realfft = "3.0.0"
 apodize = "1.0.0"
 ratatui = "0.29.0"
+clap = { version = "4.5.23", features = ["derive"] }

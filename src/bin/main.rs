@@ -1,7 +1,7 @@
 mod inputs;
 
+use audiolyzer::display::{DiscreteStrategy, DisplayStrategyFactory, LineStrategy, PointStrategy};
 use audiolyzer::fft::*;
-use audiolyzer::display::{DiscreteStrategy, DisplayStrategy, DisplayStrategyFactory, LineStrategy, PointStrategy};
 
 use std::{
     io,
@@ -28,13 +28,35 @@ use ratatui::{
     Terminal,
 };
 
-const SAMPLE_RATE: u32 = 44100;
-const BINS: usize = 22050; // TODO: rename to "bands" and change to work for octave bands
-const S: f64 = 0.7;
-const FPS: u8 = 60;
-const MIN_FREQ: u16 = 20;
-const MAX_FREQ: u16 = 20000;
-const DISPLAY_MODE: &str = "DISCRETE";
+use clap::{Parser, Subcommand};
+
+#[derive(Parser)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// Optional name to operate on
+    #[arg(long, default_value_t = 44100)]
+    sample_rate: u32,
+
+    /// Sets a custom config file
+    #[arg(long, default_value_t = 22050)]
+    bins: usize,
+
+    /// Turn debugging information on
+    #[arg(long, default_value_t = 0.7)]
+    smoothing_constant: f64,
+
+    #[arg(long, default_value_t = 60)]
+    fps: u8,
+
+    #[arg(long, default_value_t = 20)]
+    min_freq: u16,
+
+    #[arg(long, default_value_t = 20000)]
+    max_freq: u16,
+
+    #[arg(long, default_value_t = String::from("DISCRETE"))]
+    display_mode: String,
+}
 
 #[derive(Clone, Debug)]
 struct StreamOutput {
@@ -56,6 +78,15 @@ fn calc_avg_tick(
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args = Args::parse();
+    let SAMPLE_RATE: u32 = args.sample_rate;
+    let BINS: usize = args.bins; // TODO: rename to "bands" and change to work for octave bands
+    let S: f64 = args.smoothing_constant;
+    let FPS: u8 = args.fps;
+    let MIN_FREQ: u16 = args.min_freq;
+    let MAX_FREQ: u16 = args.max_freq;
+    let DISPLAY_MODE: &str = args.display_mode.as_str();
+
     let data_lock = Arc::new(Mutex::new(StreamOutput { data: vec![] }));
     let main_data_lock = data_lock.clone();
     let host = cpal::default_host();
