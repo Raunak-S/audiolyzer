@@ -4,21 +4,21 @@ use ratatui::{
 };
 
 pub trait DisplayStrategy {
-    fn render(&self, ctx: &mut Context, bins: &Vec<f64>);
+    fn render(&self, ctx: &mut Context, bins: &Vec<f64>, freq_step: f64);
 }
 
 pub struct DiscreteStrategy;
 
 // creates display data vector of lines for the canvas widget
 impl DisplayStrategy for DiscreteStrategy {
-    fn render(&self, ctx: &mut Context, bins: &Vec<f64>) {
+    fn render(&self, ctx: &mut Context, bins: &Vec<f64>, freq_step: f64) {
         let mut display_vec = vec![];
         for bin in bins.iter().enumerate() {
             if *bin.1 != 0f64 {
                 display_vec.push(Line {
-                    x1: bin.0 as f64,
+                    x1: freq_step * bin.0 as f64,
                     y1: 0.0,
-                    x2: bin.0 as f64,
+                    x2: freq_step * bin.0 as f64,
                     y2: *bin.1,
                     color: Color::White,
                 });
@@ -35,11 +35,11 @@ pub struct PointStrategy;
 
 // creates display data vector of points for the canvas widget
 impl DisplayStrategy for PointStrategy {
-    fn render(&self, ctx: &mut Context, bins: &Vec<f64>) {
+    fn render(&self, ctx: &mut Context, bins: &Vec<f64>, freq_step: f64) {
         let mut display_vec = vec![];
         for bin in bins.iter().enumerate() {
             if *bin.1 != 0f64 {
-                display_vec.push((bin.0 as f64, *bin.1));
+                display_vec.push((freq_step * bin.0 as f64, *bin.1));
             }
         }
 
@@ -54,15 +54,15 @@ pub struct LineStrategy;
 
 // creates display data vector of lines as an area graph for the canvas widget
 impl DisplayStrategy for LineStrategy {
-    fn render(&self, ctx: &mut Context, bins: &Vec<f64>) {
+    fn render(&self, ctx: &mut Context, bins: &Vec<f64>, freq_step: f64) {
         let mut display_vec: Vec<Line> = vec![];
         let mut l = 0usize;
         for idx in 1..bins.len() {
             if bins[idx] != 0f64 {
                 display_vec.push(Line {
-                    x1: l as f64,
+                    x1: freq_step * l as f64,
                     y1: bins[l],
-                    x2: idx as f64,
+                    x2: freq_step * idx as f64,
                     y2: bins[idx],
                     color: Color::White,
                 });
@@ -70,9 +70,9 @@ impl DisplayStrategy for LineStrategy {
             }
         }
         display_vec.push(Line {
-            x1: l as f64,
+            x1: freq_step * l as f64,
             y1: 0f64,
-            x2: l as f64,
+            x2: freq_step * l as f64,
             y2: bins[l],
             color: Color::White,
         });
@@ -104,7 +104,7 @@ impl DisplayStrategyFactory {
             "DISCRETE" => Box::new(DiscreteStrategy),
             "POINT" => Box::new(PointStrategy),
             "LINE" => Box::new(LineStrategy),
-            _ => todo!(),
+            _ => Box::new(DiscreteStrategy),
         }
     }
 }

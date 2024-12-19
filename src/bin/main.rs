@@ -56,6 +56,9 @@ struct Args {
 
     #[arg(long, default_value_t = String::from("DISCRETE"))]
     display_mode: String,
+
+    #[arg(long, default_value_t = 1024)]
+    fft_size: u32,
 }
 
 #[derive(Clone, Debug)]
@@ -77,6 +80,21 @@ fn calc_avg_tick(
     *ticksum / (ticklist.len() as f32)
 }
 
+fn normalize_db(value: f64) -> f64 {
+    let max_val = -25f64;
+    let min_val = -85f64;
+
+    let normal_val = (value - min_val) / (max_val - min_val);
+
+    if normal_val < 0. {
+        0.
+    } else if normal_val > 1. {
+        1.
+    } else {
+        normal_val
+    }
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     let SAMPLE_RATE: u32 = args.sample_rate;
@@ -86,19 +104,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let MIN_FREQ: u16 = args.min_freq;
     let MAX_FREQ: u16 = args.max_freq;
     let DISPLAY_MODE: &str = args.display_mode.as_str();
+    let fft_size = args.fft_size;
+    let freq_step = f64::from(SAMPLE_RATE) / f64::from(fft_size);
 
     let data_lock = Arc::new(Mutex::new(StreamOutput { data: vec![] }));
     let main_data_lock = data_lock.clone();
     let host = cpal::default_host();
     let device = host
-        .devices()
+        .input_devices()
         .unwrap()
         .find(|possible_device| possible_device.name().unwrap() == "BlackHole 2ch")
         .unwrap();
     let custom_config = cpal::StreamConfig {
         channels: 1,
         sample_rate: cpal::SampleRate(SAMPLE_RATE), // default sample rate 44100
-        buffer_size: cpal::BufferSize::Fixed(1024), // default buffer size cpal::BufferSize::Default
+        buffer_size: cpal::BufferSize::Fixed(fft_size), // default buffer size cpal::BufferSize::Default
     };
 
     let stream = device
@@ -145,27 +165,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     _ => continue,
                 };
 
-                fft_engine.push_samples(&data);
-
-                // let mut sample_debug = vec![];
-                // for bin in fft_engine.get_curr_data().iter().enumerate() {
-                //     sample_debug.push(Line {
-                //         x1: bin.0 as f64,
-                //         y1: 0.0,
-                //         x2: bin.0 as f64,
-                //         y2: bin.1.to_owned() as f64,
-                //         color: Color::White,
-                //     });
-                // }
-                // let sample_debug = Canvas::default()
-                //     .block(Block::default().title("audiolyzer").borders(Borders::ALL))
-                //     .x_bounds([0.0, 1350.0])
-                //     .y_bounds([-1.0, 1.0])
-                //     .paint(|ctx| {
-                //         for line in &sample_debug {
-                //             ctx.draw(line);
-                //         }
-                //     });
+                fft_engine.set_src_buf(&data);
 
                 fft_engine.apply_window();
                 fft_engine.apply_fft();
@@ -188,8 +188,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .x_bounds([MIN_FREQ.into(), MAX_FREQ.into()])
                     .y_bounds([0.0, 10.0])
                     .paint(|ctx| {
+                        let mut freq_data = fft_engine.get_bins();
+                        freq_data
+                            .iter_mut()
+                            .for_each(|x| *x = normalize_db(*x) * 10.);
                         let s = DisplayStrategyFactory::get_display_strategy(DISPLAY_MODE);
-                        s.render(ctx, &fft_engine.get_bins());
+                        s.render(ctx, &freq_data, freq_step);
                     });
 
                 // let display_vec = create_bar_data(fft_engine.get_bins());
