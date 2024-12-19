@@ -1,15 +1,25 @@
 use core::time;
-use std::{sync::{Arc, Mutex}, thread::sleep, time::Duration};
+use std::{
+    sync::{Arc, Mutex},
+    thread::sleep,
+    time::Duration,
+};
 
-use cpal::{traits::{DeviceTrait, HostTrait, StreamTrait}, InputStreamTimestamp};
+use cpal::{
+    traits::{DeviceTrait, HostTrait, StreamTrait},
+    InputStreamTimestamp,
+};
 
 pub struct Info {
     data: Vec<f32>,
-    timestamp: Option<InputStreamTimestamp>
+    timestamp: Option<InputStreamTimestamp>,
 }
 
 fn main() {
-    let main_data_lock = Arc::new(Mutex::new(Info { data: vec![], timestamp: None }));
+    let main_data_lock = Arc::new(Mutex::new(Info {
+        data: vec![],
+        timestamp: None,
+    }));
     let data_lock = main_data_lock.clone();
     let host = cpal::default_host();
     let device = host
@@ -22,7 +32,6 @@ fn main() {
         sample_rate: cpal::SampleRate(44100), // default sample rate 44100
         buffer_size: cpal::BufferSize::Fixed(1024), // device default is cpal::BufferSize::Default
     };
-
 
     let stream = device
         .build_input_stream(
@@ -49,13 +58,11 @@ fn main() {
 
     let mut tmp = vec![];
     for _ in 0..10 {
-        sleep(Duration::from_millis(1000/60));
+        sleep(Duration::from_millis(1000 / 60));
         let info = main_data_lock.lock().unwrap();
         tmp.push((info.timestamp.unwrap(), info.data.len()));
     }
     for timestamp in tmp {
-
-        println!("{:?}\n{:?}",timestamp.0,timestamp.1);
+        println!("{:?}\n{:?}", timestamp.0, timestamp.1);
     }
-
 }

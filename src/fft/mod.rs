@@ -40,12 +40,7 @@ impl FFTEngine {
             return;
         }
         self.curr_data = samples.to_owned();
-        self.log(
-                format!(
-                    "Curr_data.len {:?}\n",
-                    self.curr_data.len()
-                )
-            );
+        self.log(format!("Curr_data.len {:?}\n", self.curr_data.len()));
     }
 
     pub fn get_curr_data(&self) -> Vec<f32> {
@@ -64,16 +59,14 @@ impl FFTEngine {
         if !(1 < self.curr_data.len()) {
             return;
         }
-        
+
         let window_fn: CosineWindowIter = match self.window_fn {
             WindowType::Hanning => apodize::hanning_iter(self.curr_data.len()),
             WindowType::Blackman => apodize::blackman_iter(self.curr_data.len()),
             WindowType::Hamming => apodize::hamming_iter(self.curr_data.len()),
             WindowType::Nuttall => apodize::nuttall_iter(self.curr_data.len()),
         };
-        let window = window_fn
-            .map(|f| f as f32)
-            .collect::<Vec<f32>>();
+        let window = window_fn.map(|f| f as f32).collect::<Vec<f32>>();
 
         self.curr_data = window
             .iter()
@@ -118,32 +111,30 @@ impl FFTEngine {
             // let b_max = (bin_len as f64 - 1.);
 
             let insert_idx = match self.fft_bins.len() {
-                10 => ((val.0 as f64*freq_step).round() / 2000.) as usize,
-                _ => (val.0 as f64*freq_step).round() as usize,
+                10 => ((val.0 as f64 * freq_step).round() / 2000.) as usize,
+                _ => (val.0 as f64 * freq_step).round() as usize,
             };
             if insert_idx >= self.fft_bins.len() {
-                continue
+                continue;
             }
-            self.fft_bins[insert_idx]
-                .push(val.1.norm());
+            self.fft_bins[insert_idx].push(val.1.norm());
         }
-
 
         // B_i' = B_(i-1)' * s' + B_i * (1 - s')
         // s' = s ** (1 / R)
         // R = NUM_OF_SAMPLES / SAMPLE_RATE
         for bin in self.fft_bins.iter().enumerate() {
             let y_value_raw = if bin.1.len() != 0 {
-                bin
-                .1[0] / (self.curr_data.len() as f64)
+                bin.1[0] / (self.curr_data.len() as f64)
             } else {
                 0.
             };
 
-            
-            let y_value_final = self.prev_data[bin.0] * self.smoothing_base + y_value_raw * (1. - self.smoothing_base);
+            let y_value_final = self.prev_data[bin.0] * self.smoothing_base
+                + y_value_raw * (1. - self.smoothing_base);
             self.prev_data[bin.0] = y_value_final;
-            self.processed_values[bin.0] = self.normalize_db(self.linear_to_db(y_value_final)) * 10.;
+            self.processed_values[bin.0] =
+                self.normalize_db(self.linear_to_db(y_value_final)) * 10.;
         }
     }
 
@@ -156,11 +147,10 @@ impl FFTEngine {
     }
 
     fn normalize_db(&self, value: f64) -> f64 {
-        
         let max_val = -25f64;
         let min_val = -85f64;
 
-        let normal_val = (value-min_val) / (max_val - min_val);
+        let normal_val = (value - min_val) / (max_val - min_val);
 
         if normal_val < 0. {
             0.
@@ -177,6 +167,6 @@ impl FFTEngine {
     }
 
     pub fn log(&mut self, s: String) {
-        self.logger.write_all(s.as_bytes(),).unwrap();
+        self.logger.write_all(s.as_bytes()).unwrap();
     }
 }

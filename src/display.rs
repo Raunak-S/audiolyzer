@@ -15,14 +15,14 @@ impl DisplayStrategy for DiscreteStrategy {
         let mut display_vec = vec![];
         for bin in bins.iter().enumerate() {
             if *bin.1 != 0f64 {
-            display_vec.push(Line {
-                x1: bin.0 as f64,
-                y1: 0.0,
-                x2: bin.0 as f64,
-                y2: *bin.1,
-                color: Color::White,
-            });
-        }
+                display_vec.push(Line {
+                    x1: bin.0 as f64,
+                    y1: 0.0,
+                    x2: bin.0 as f64,
+                    y2: *bin.1,
+                    color: Color::White,
+                });
+            }
         }
 
         for line in &display_vec {
@@ -39,8 +39,9 @@ impl DisplayStrategy for PointStrategy {
         let mut display_vec = vec![];
         for bin in bins.iter().enumerate() {
             if *bin.1 != 0f64 {
-            display_vec.push((bin.0 as f64, *bin.1));
-        }}
+                display_vec.push((bin.0 as f64, *bin.1));
+            }
+        }
 
         ctx.draw(&Points {
             coords: &display_vec,
@@ -95,7 +96,6 @@ impl DisplayStrategy for LineStrategy {
 //     display_vec
 // }
 
-
 pub struct DisplayStrategyFactory;
 
 impl DisplayStrategyFactory {
@@ -104,7 +104,7 @@ impl DisplayStrategyFactory {
             "DISCRETE" => Box::new(DiscreteStrategy),
             "POINT" => Box::new(PointStrategy),
             "LINE" => Box::new(LineStrategy),
-            _ => todo!()
+            _ => todo!(),
         }
     }
 }
