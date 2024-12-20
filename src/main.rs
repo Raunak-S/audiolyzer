@@ -6,18 +6,16 @@ mod ui;
 
 use crate::{
     app::App,
-    display::{DiscreteStrategy, DisplayStrategyFactory, LineStrategy, PointStrategy},
     fft::*,
     inputs::{events::Events, key::Key, InputEvent},
 };
 
 use std::{
     io,
-    sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
 
-use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use cpal::traits::HostTrait;
 
 use ratatui::{
     backend::CrosstermBackend,
@@ -26,13 +24,7 @@ use ratatui::{
         execute,
         terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
     },
-    layout::{Constraint, Direction, Layout, Rect},
     prelude::Backend,
-    style::{Color, Style},
-    widgets::{
-        canvas::{Canvas, Line, Points},
-        BarChart, Block, Borders, Clear, Paragraph,
-    },
     Terminal,
 };
 use ui::ui;

@@ -1,32 +1,18 @@
 use crate::{
     app::App,
-    display::{DiscreteStrategy, DisplayStrategyFactory, LineStrategy, PointStrategy},
-    fft::*,
-    inputs::{events::Events, key::Key, InputEvent},
+    display::DisplayStrategyFactory,
 };
 
-use std::{
-    io,
-    sync::{Arc, Mutex},
-    time::{Duration, Instant},
-};
 
-use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use cpal::traits::DeviceTrait;
 
 use ratatui::{
-    backend::CrosstermBackend,
-    crossterm::{
-        event::{DisableMouseCapture, EnableMouseCapture},
-        execute,
-        terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-    },
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
     widgets::{
-        canvas::{Canvas, Line, Points},
-        BarChart, Block, Borders, Clear, Paragraph,
+        canvas::Canvas, Block, Borders, Clear, Paragraph,
     },
-    Frame, Terminal,
+    Frame,
 };
 
 pub struct UI;

@@ -1,36 +1,13 @@
-use crate::{
-    display::{DiscreteStrategy, DisplayStrategyFactory, LineStrategy, PointStrategy},
-    fft::*,
-    inputs::{events::Events, key::Key, InputEvent},
-};
-use clap::{Parser, Subcommand};
+use crate::fft::*;
+use clap::Parser;
 
-use std::{
-    io,
-    sync::{Arc, Mutex},
-    time::{Duration, Instant},
-};
+use std::sync::{Arc, Mutex};
 
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     Device, Stream,
 };
 
-use ratatui::{
-    backend::CrosstermBackend,
-    crossterm::{
-        event::{DisableMouseCapture, EnableMouseCapture},
-        execute,
-        terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-    },
-    layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
-    widgets::{
-        canvas::{Canvas, Line, Points},
-        BarChart, Block, Borders, Clear, Paragraph,
-    },
-    Terminal,
-};
 
 #[derive(Clone, Debug)]
 struct StreamOutput {
@@ -104,15 +81,15 @@ impl App {
             buffer_size: cpal::BufferSize::Fixed(fft_size), // default buffer size cpal::BufferSize::Default
         };
 
-        let mut edit_in_device = false;
-        let mut devices: Vec<(usize, String)> = cpal::default_host()
+        let edit_in_device = false;
+        let devices: Vec<(usize, String)> = cpal::default_host()
             .input_devices()
             .unwrap()
             .enumerate()
             .map(|(i, d)| (i, d.name().unwrap()))
             .collect();
 
-        let mut stream = device
+        let stream = device
             .build_input_stream(
                 &custom_config,
                 move |data: &[f32], _: &cpal::InputCallbackInfo| {
@@ -132,7 +109,7 @@ impl App {
             .unwrap();
         stream.play().unwrap();
 
-        let mut fft_engine = FFTEngine::new(SAMPLE_RATE, BINS, S, WindowType::Blackman);
+        let fft_engine = FFTEngine::new(SAMPLE_RATE, BINS, S, WindowType::Blackman);
 
         App {
             edit_in_device,
@@ -147,7 +124,7 @@ impl App {
 
     pub fn update_state(&mut self) {
         let data = match self.audio_lock.lock() {
-            Ok(mut res) => res.data.clone(),
+            Ok(res) => res.data.clone(),
             _ => return,
         };
 
