@@ -94,6 +94,11 @@ impl Key {
         matches!(self, Key::Down)
     }
 
+    ///If down arrow
+    pub fn is_unknown(&self) -> bool {
+        matches!(self, Key::Unknown)
+    }
+
     /// Returns the function key corresponding to the given number
     ///
     /// 1 -> F1, etc...
