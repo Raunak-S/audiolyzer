@@ -1,17 +1,11 @@
-use crate::{
-    app::App,
-    display::DisplayStrategyFactory,
-};
-
+use crate::{app::App, display::DisplayStrategyFactory};
 
 use cpal::traits::DeviceTrait;
 
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
-    widgets::{
-        canvas::Canvas, Block, Borders, Clear, Paragraph,
-    },
+    widgets::{canvas::Canvas, Block, Borders, Clear, Paragraph},
     Frame,
 };
 
@@ -22,9 +16,10 @@ pub fn ui(f: &mut Frame, app: &App) {
         .block(
             Block::default()
                 .title(format!(
-                    "audiolyzer - Window: {:?} - FPS: {:?}",
+                    "audiolyzer - Window: {:?} - FPS: {:?} - Input Device: {:?}",
                     app.fft_engine.get_window(),
-                    app.args.fps
+                    app.args.fps,
+                    app.in_devices[app.in_devices_idx].name().unwrap()
                 ))
                 .borders(Borders::ALL),
         )
@@ -52,11 +47,16 @@ pub fn ui(f: &mut Frame, app: &App) {
                 .constraints(Constraint::from_lengths(vec![1; app.in_devices.len()]))
                 .split(area);
 
+            let active_style = Style::default().bg(Color::LightYellow).fg(Color::Black);
+
             f.render_widget(canvas, size);
             f.render_widget(Clear, area);
             f.render_widget(popup_block, area);
             app.in_devices.iter().enumerate().for_each(|(i, d)| {
-                let text = Paragraph::new(d.name().unwrap().clone());
+                let mut text = Paragraph::new(d.name().unwrap().clone());
+                if i == app.in_devices_idx {
+                    text = text.style(active_style);
+                }
                 f.render_widget(text, popup_chunks[i]);
             });
         }

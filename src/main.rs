@@ -96,7 +96,16 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<
         }
 
         if result.is_down_arrow() {
-            if app.edit_in_device {}
+            if app.edit_in_device {
+                app.in_devices_idx = (app.in_devices_idx + 1) % app.in_devices.len();
+            }
+        }
+
+        if result.is_enter() {
+            if app.edit_in_device {
+                app.update_input_device();
+                app.edit_in_device = !app.edit_in_device;
+            }
         }
 
         if result.is_exit() {

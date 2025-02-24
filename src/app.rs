@@ -5,9 +5,8 @@ use std::sync::{Arc, Mutex};
 
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
-    Device, Stream,
+    Device, Stream, StreamConfig,
 };
-
 
 #[derive(Clone, Debug)]
 struct StreamOutput {
@@ -48,11 +47,12 @@ pub struct Args {
 pub struct App {
     pub edit_in_device: bool,
     pub in_devices: Vec<Device>,
-    pub fft_engine: FFTEngine,
+    pub in_devices_idx: usize,
     pub audio_lock: Arc<Mutex<StreamOutput>>,
     pub freq_step: f64,
-    pub args: Args,
+    pub fft_engine: FFTEngine,
     pub stream: Stream,
+    pub args: Args,
 }
 
 impl App {
@@ -70,24 +70,21 @@ impl App {
 
         let data_lock = Arc::new(Mutex::new(StreamOutput { data: vec![] }));
         let main_data_lock = data_lock.clone();
-        let device = cpal::default_host()
-            .input_devices()
-            .unwrap()
-            .find(|possible_device| possible_device.name().unwrap() == "BlackHole 2ch")
+
+        let edit_in_device = false;
+        let in_devices: Vec<Device> = cpal::default_host().input_devices().unwrap().collect();
+
+        let (in_devices_idx, device) = in_devices
+            .iter()
+            .enumerate()
+            .find(|(i, possible_device)| possible_device.name().unwrap() == "BlackHole 2ch")
             .unwrap();
+
         let custom_config = cpal::StreamConfig {
             channels: 1,
             sample_rate: cpal::SampleRate(SAMPLE_RATE), // default sample rate 44100
             buffer_size: cpal::BufferSize::Fixed(fft_size), // default buffer size cpal::BufferSize::Default
         };
-
-        let edit_in_device = false;
-        let devices: Vec<(usize, String)> = cpal::default_host()
-            .input_devices()
-            .unwrap()
-            .enumerate()
-            .map(|(i, d)| (i, d.name().unwrap()))
-            .collect();
 
         let stream = device
             .build_input_stream(
@@ -114,8 +111,9 @@ impl App {
         App {
             edit_in_device,
             fft_engine,
+            in_devices,
+            in_devices_idx,
             audio_lock: main_data_lock,
-            in_devices: vec![],
             freq_step,
             args,
             stream,
@@ -147,5 +145,35 @@ impl App {
         } else {
             normal_val
         }
+    }
+
+    pub fn update_input_device(&mut self) {
+        let custom_config = cpal::StreamConfig {
+            channels: 1,
+            sample_rate: cpal::SampleRate(self.args.sample_rate),
+            buffer_size: cpal::BufferSize::Fixed(self.args.fft_size),
+        };
+
+        self.audio_lock = Arc::new(Mutex::new(StreamOutput { data: vec![] }));
+        let data_lock = self.audio_lock.clone();
+        self.stream = self.in_devices[self.in_devices_idx]
+            .build_input_stream(
+                &custom_config,
+                move |data: &[f32], _: &cpal::InputCallbackInfo| {
+                    // react to stream events and read or write stream data here.
+                    match data_lock.lock() {
+                        Ok(mut streamoutput) => streamoutput.data = data.to_vec(),
+                        _ => (),
+                    }
+                },
+                move |err| {
+                    // react to errors here.
+                    eprintln!("{err}");
+                    panic!()
+                },
+                None,
+            )
+            .unwrap();
+        self.stream.play().unwrap();
     }
 }

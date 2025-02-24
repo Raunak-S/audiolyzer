@@ -99,6 +99,11 @@ impl Key {
         matches!(self, Key::Unknown)
     }
 
+    ///If down arrow
+    pub fn is_enter(&self) -> bool {
+        matches!(self, Key::Enter)
+    }
+
     /// Returns the function key corresponding to the given number
     ///
     /// 1 -> F1, etc...
